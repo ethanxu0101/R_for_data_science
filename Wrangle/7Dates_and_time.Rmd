@@ -1,0 +1,81 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+
+library(lubridate)
+library(nycflights13)
+```
+## 1.1 Creating date/times
+
+There are three types of date/time data that refer to an instant in time:
+
+1. A date. Tibbles print this as `<date>`. (will be covered)
+
+2. A time within a day. Tibbles print this as `<time>`. (will not be covered)
+
+3. A date-time is a date plus a time: it uniquely identifies an instant in time (typically to the nearest second). Tibbles print this as `<dttm>`. (will be covered)
+
+
+There are serveal ways to create a date/time: 
+
+* To get the current date or date-time you can use today() or now():
+
+```{r}
+
+today()
+now()
+
+```
+* From a string.
+* From individual date-time components.
+* From an existing date/time object.
+
+
+### 1.1.1 From Strings
+
+We can use the helpers provided by __lubridate__. They automatically work out the format once you specify the order of the component. To use them, identify the order in which year, month, and day appear in your dates;
+
+```{r}
+ymd("2017-01-31")
+#> [1] "2017-01-31"
+mdy("January 31st, 2017")
+#> [1] "2017-01-31"
+dmy("31-Jan-2017")
+#> [1] "2017-01-31"
+```
+These functions also take unquoted numbers. 
+```{r}
+ymd(20170131)
+```
+
+To create a date-time, we than add an underscore and one or more of “h”, “m”, and “s” to the name of the parsing function:
+
+```{r}
+ymd_hms("2017-01-31 20:11:59")
+#> [1] "2017-01-31 20:11:59 UTC"
+mdy_hm("01/31/2017 08:01")
+#> [1] "2017-01-31 08:01:00 UTC"
+```
+
+### 1.1.2 From individual components
+Instead of a single string, sometimes you’ll have the individual components of the date-time spread across multiple columns. This is what we have in the flights data:
+
+```{r}
+flights %>% 
+  select(year, month, day, hour, minute)
+```
+To create a date/time from this sort of input, use `make_date()` for dates, or `make_datetime()` for date-times:
+
+```{r}
+flights %>%
+  select(year, month, day, hour, minute) %>%
+  mutate(departure = make_datetime(year, month, day, hour, minute))
+
+
+```
+

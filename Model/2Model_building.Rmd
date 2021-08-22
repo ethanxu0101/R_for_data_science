@@ -1,0 +1,95 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(modelr)
+options(na.action = na.warn)
+
+library(nycflights13)
+library(lubridate)
+```
+
+
+## 24.2 Why are low quality diamonds more expensive?
+
+In previous chapters we’ve seen a surprising relationship between the quality of diamonds and their price: low quality diamonds (poor cuts, bad colours, and inferior clarity) have higher prices.
+
+```{r}
+ggplot(diamonds, aes(cut, price)) + geom_boxplot()
+ggplot(diamonds, aes(color, price)) + geom_boxplot()
+ggplot(diamonds, aes(clarity, price)) + geom_boxplot()
+```
+
+### 24.2.1 Price and carat
+
+It looks like lower quality diamonds have higher prices because there is an important confounding variable: the weight (`carat`) of the diamond. The weight of the diamond is the single most important factor for determining the price of the diamond, and lower quality diamonds tend to be larger.
+
+```{r}
+ggplot(diamonds, aes(carat, price)) + geom_hex(bins=50)
+```
+We can make it easier to see how the other attributes of a diamond affect its relative `price` by fitting a model to separate out the effect of `carat`. But first, lets make a couple of tweaks to the diamonds dataset to make it easier to work with:
+
+1. Focus on diamonds smaller than 2.5 carats (99.7% of the data)
+2. Log-transform the carat and price variables.
+
+```{r}
+diamonds2 <- diamonds %>%
+    filter(carat <= 2.5) %>%
+    mutate(lprice=log2(price), lcarat=log2(carat))
+```
+
+```{r}
+ggplot(diamonds2, aes(lcarat, lprice)) + geom_hex(bins=50)
+```
+The log-transformation is particularly useful here because it makes the pattern linear, and linear patterns are the easiest to work with. Let’s take the next step and remove that strong linear pattern. We first make the pattern explicit by fitting a model:
+
+```{r}
+mod_diamond <- lm(lprice ~ lcarat, data=diamonds2)
+```
+
+
+Then we look at what the model tells us about the data. Note that I back transform the predictions, undoing the log transformation, so I can overlay the predictions on the raw data:
+
+```{r}
+grid <- diamonds2 %>%
+  data_grid(carat = seq_range(carat, 20)) %>%
+  mutate(lcarat = log2(carat)) %>%
+  add_predictions(mod_diamond, "lprice") %>%
+  mutate(price = 2 ^ lprice)
+
+ggplot(diamonds2, aes(carat, price)) + geom_hex(bins=50) + geom_line(data = grid, colour="red", size = 1)
+```
+Now we can look at the residuals, which verifies that we’ve successfully removed the strong linear pattern:
+
+```{r}
+diamonds2 <- diamonds2 %>%
+  add_residuals(mod_diamond, "lresid")
+
+ggplot(diamonds2, aes(lcarat, lresid)) + geom_hex(bins=50)
+```
+Importantly, we can now re-do our motivating plots using those residuals instead of price.
+
+```{r}
+ggplot(diamonds2, aes(cut, lresid)) + geom_boxplot()
+ggplot(diamonds2, aes(color, lresid)) + geom_boxplot()
+ggplot(diamonds2, aes(clarity, lresid)) + geom_boxplot()
+```
+### 24.2.2 A more complicated model
+If we wanted to, we could continue to build up our model, moving the effects we’ve observed into the model to make them explicit. For example, we could include `color`, `cut`, and `clarity` into the model so that we also make explicit the effect of these three categorical variables:
+
+```{r}
+mod_diamond2 <- lm(lprice ~ lcarat + color + cut + clarity, data=diamonds2)
+```
+
+This model now includes four predictors, so it’s getting harder to visualise. Fortunately, they’re currently all independent which means that we can plot them individually in four plots. To make the process a little easier, we’re going to use the `.model` argument to `data_grid`:
+
+```{r}
+grid <- diamonds2 %>% 
+  data_grid(cut, .model = mod_diamond2) %>%
+  add_predictions(mod_diamond2)
+```
+
+

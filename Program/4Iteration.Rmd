@@ -1,0 +1,203 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+```
+
+
+## 1.1 For Loops
+
+* Imagine we have this simple tibble.
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+```
+
+We could use a for loop to compute the median of each column.
+```{r}
+output <- vector("double", ncol(df))
+for (i in seq_along(df)) {
+  output[[i]] <- median(df[[i]])
+}
+output
+
+```
+
+Every for loop has three components:
+
+1. The __output__ `output <- vector("double", length(x))` Before you start the loop, you must allocate sufficient space for the output. 
+
+A general way of creating an empty vector of given length is the `vector()` function. It has two arguments: the type of the vector ("logical", "integer", "double", "character", etc), and the length of the vector. 
+
+2. The __sequence__: `i in seq_along(df)`; determines what to loop over, a safe version of the `1:length(l)` (`seq_along` can detect 0 length vector).
+
+3. The __body__: `output[[i]] <- median(df[[i]])`, This is the code that does the work. It’s run repeatedly, each time with a different value for `i`.
+
+
+## 1.2 For Loop Variations
+
+There are four variations on the basic theme of the for loop:
+
+1. Modifying an existing object, instead of creating a new object.
+2. Looping over names or values, instead of indices.
+3. Handling outputs of unknown length.
+4. Handling sequences of unknown length.
+
+
+### 1.2.1 Modifying an existing object
+
+For example as below, remember to use `[[` rather than `[`.
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+for (i in seq_along(df)){
+  df[[i]] <- rescale01(df[[i]])
+}
+
+```
+
+### 1.2.2 Looping patterns
+
+There are three basic ways to loop over a vector.
+
+1. `seq_along`
+2. Loop over the elements: `for (x in xs)`
+3. Loop over the names: `for (nm in names(xs))`; This gives you name, which you can use to access the value with `x[[nm]]`. If you’re creating named output, make sure to name the results vector like so:
+```{r, eval=FALSE}
+results <- vector("list", length(x))
+names(results) <- names(x)
+```
+
+
+### 1.2.3 Unknown output length
+Sometimes you might not know how long the output will be. For example, imagine you want to simulate some random vectors of random lengths. You might be tempted to solve this problem by progressively growing the vector:
+
+```{r}
+means <- c(0, 1, 2)
+
+output <- double()
+for (i in seq_along(means)) {
+  n <- sample(100, 1)
+  output <- c(output, rnorm(n, means[[i]]))
+}
+str(output)
+```
+__Note__: But this is not very efficient because in each iteration, R has to copy all the data from the previous iterations. In technical terms you get “quadratic”;
+
+
+__A better solution__: to save the results in a list, and then combine into a single vector after the loop is done:
+```{r}
+out <- vector("list", length(means))
+for (i in seq_along(means)) {
+  n <- sample(100, 1)
+  out[[i]] <- rnorm(n, means[[i]])
+}
+str(out)
+```
+
+### 1.2.4 Unknown sequence length
+
+Sometimes you don’t even know how long the input sequence should run for. This is common when doing simulations. In this case, you can use `while` loop:
+```{r, eval=FALSE}
+while (condition) {
+  # body
+}
+```
+
+## 1.3 For loops vs functional
+
+* The key idea: passing a function to another function;
+* `purrr` package
+```{r, eval=FALSE}
+
+## Where fun (mean, median, etc) is passed into another function !!!
+col_summary <- function(df, fun) {
+  out <- vector("double", length(df))
+  for (i in seq_along(df)) {
+    out[i] <- fun(df[[i]])
+  }
+  out
+}
+col_summary(df, median)
+#> [1] -0.51850298  0.02779864  0.17295591 -0.61163819
+col_summary(df, mean)
+#> [1] -0.3260369  0.1356639  0.4291403 -0.2498034
+```
+
+
+## 1.4 The Map Functions
+
+The pattern of looping over a vector, doing something to each element and saving the results is so common that the `purrr` package provides a family of functions to do it for you. There is one function for each type of output:
+
+* `map()` makes a list.
+* `map_lgl()` makes a logical vector.
+* `map_int()` makes an integer vector.
+* `map_dbl()` makes a double vector.
+* `map_chr()` makes a character vector.
+
+Each function takes a vector as input, applies a function to each piece, and then returns a new vector that’s the same length (and has the same names) as the input.
+
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+```
+
+```{r}
+map_dbl(df, mean)
+map_dbl(df, median)
+# map_dbl(df, sd)
+```
+
+### 1.4.1 Shortcuts
+There are a few shortcuts that you can use with `.f` in order to save a little typing. For example, the following toy example splits up the `mtcars` dataset into three pieces (one for each value of cylinder) and fits the same linear model to each piece:
+
+```{r}
+models <- mtcars %>% 
+  split(.$cyl) %>% 
+  map(function(df) lm(mpg ~ wt, data = df))
+```
+
+The syntax for creating an anonymous function in R is quite verbose so purrr provides a convenient shortcut: a one-sided formula.
+```{r}
+models <- mtcars %>%
+  split(.$cyl) %>%
+  map(~lm(mpg ~ wt, data = .))
+```
+
+__Note__: Here I’ve used `.` as a pronoun: it refers to the current list element (in the same way that i referred to the current index in the for loop).
+
+
+When you’re looking at many models, you might want to extract a summary statistic like the R^2. To do that we need to first run `summary()` and then extract the component called `r.squared`. We could do that using the shorthand for anonymous functions:
+```{r}
+models %>%
+  map(summary) %>%
+  map_dbl(~.$r.squared)
+```
+
+## 1.5 Dealing with failure
+
+In this section you’ll learn how to deal with this situation with a new function: `safely()`. `safely()` is an adverb: it takes a function (a verb) and returns a modified version.  In this case, the modified function will never throw an error. Instead, it always returns a list with two elements:
+1. `result` is the original result. If there was an error, this will be `NULL`.
+2. `error` is an error object. If the operation was successful, this will be `NULL`.

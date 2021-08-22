@@ -1,0 +1,32 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+Read `flavors_of_cacao` data: 
+```{r}
+chocolatedata <- read_csv("data/flavors_of_cacao.csv")
+
+```
+
+Some of our column names have space in them. This line changes the column names to versions without spaces (replace it by `.`), which let's us talk about the columns by their names.
+```{r}
+names(chocolatedata) <- make.names(names(chocolatedata), unique=TRUE)
+```
+
+Read another dataset: `food_coded.csv`
+
+```{r}
+# food_preferences <- read_csv("data/food_coded.csv", header = TRUE, sep = ",")
+```
+
+```{r}
+
+```
+

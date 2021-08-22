@@ -1,0 +1,224 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+```
+
+## 1.1. Vector Basics
+
+There are two types of vectors:
+
+1. __Atomic vectors__, of which there are six types: __logical__, __integer__, __double__, __character__, __complex__, and __raw__. Integer and double vectors are collectively known as numeric vectors.
+
+2. __Lists__, which are sometimes called recursive vectors because lists can contain other lists.
+
+The chief difference between atomic vectors and lists is that atomic vectors are __homogeneous__, while lists can be __heterogeneous__. There’s one other related object: `NULL`. `NULL` is often used to represent the absence of a vector (as opposed to `NA` which is used to represent the absence of a value in a vector. 
+
+
+* Every vector has two key properties:
+
+1. Its __type__, which you can determine with `typeof()`:
+```{r}
+typeof(letters)
+typeof(1:10)
+```
+2. Its __length__, which you can determine with `length()`.
+```{r}
+x <- list("a", "b", 1:10)
+length(x)
+```
+Vectors can also contain arbitrary additional metadata in the form of attributes. These attributes are used to create __augmented vectors__ which build on additional behaviour. There are three important types of augmented vector:
+
+1. Factors are built on top of integer vectors.
+2. Dates and date-times are built on top of numeric vectors.
+3. Data frames and tibbles are built on top of lists.
+
+
+## 1.2 Important Types of atomic vector
+
+The four most important types of atomic vector are __logical__, __integer__, __double__, and __character__.
+
+### 1.2.1 Logical
+
+Logical vectors are the simplest type of atomic vector because they can take only __three__ possible values: `FALSE`, `TRUE`, and `NA.` Logical vectors are usually constructed with comparison operators.
+
+```{r}
+1:10 %% 3 == 0
+```
+
+### 1.2.2 Numeric
+
+Integer and double vectors are known collectively as numeric vectors. In R, numbers are doubles by default. To make an integer, place an `L` after the number:
+
+```{r}
+typeof(1)
+typeof(1L)
+```
+
+#### Note: 
+1. Doubles are __approximations__. Doubles represent floating point numbers that can not always be precisely represented with a fixed amount of memory. This means that you should consider all doubles to be approximations.
+
+Instead of comparing floating point numbers using `==`, you should use `dplyr::near()` which allows for some numerical tolerance.
+
+```{r}
+2 == sqrt(2) ^ 2
+
+near(2, sqrt(2) ^ 2)
+
+```
+2. Integers have one special value: `NA`, while doubles have four: `NA`, `NaN`, `Inf` and `-Inf`. All three special values `NaN`, `Inf` and `-Inf` can arise during division:
+```{r}
+c(-1, 0, 1) / 0
+```
+
+* Avoid using `==` to check for these other special values. Instead use the helper functions `is.finite()`, `is.infinite()`, and `is.nan()`.
+
+
+### 1.2.3 Character
+
+Character vectors are the most complex type of atomic vector, because each element of a character vector is a string, and a string can contain an arbitrary amount of data.
+
+R uses a global string pool. This means that each unique string is only stored in memory once, and every use of the string points to that representation
+
+```{r}
+x <- "This is a reasonably long string."
+pryr::object_size(x)
+
+y<- rep(x, 1000)
+pryr::object_size(y) ## not 1000 times the size of x
+```
+
+### 1.2.4 Missing Values
+
+Note that each type of atomic vector has its own missing value (but normally we only neeed `NA`):
+
+```{r}
+NA # logical
+
+NA_integer_ # Integer
+
+NA_real_    # DOUBLE
+
+NA_character_ # character
+```
+
+## 1.3 Using atomic vectors 
+
+1. How to convert from one type to another, and when that happens automatically.
+
+2. How to tell if an object is a specific type of vector.
+
+3. What happens when you work with vectors of different lengths.
+
+4. How to name the elements of a vector.
+
+5. How to pull out elements of interest.
+
+### 1.3.1 Coercion
+
+There are two ways to convert, or coerce, one type of vector to another:
+
+1. Explicit coercion happens when you call a function like as.logical(), as.integer(), as.double(), or as.character(). (rarely use since it would change datatype)
+
+2. Implicit coercion happens when you use a vector in a specific context that expects a certain type of vector. For example, when you use a logical vector with a numeric summary function, or when you use a double vector where an integer vector is expected.
+
+```{r, eval=FALSE}
+x <- sample(20, 100, replace = TRUE)
+y <- x > 10
+sum(y)  # how many are greater than 10?
+#> [1] 38
+mean(y) # what proportion are greater than 10?
+#> [1] 0.38
+```
+
+It’s also important to understand what happens when you try and create a vector containing multiple types with c(): the most complex type always wins.
+
+```{r, eval=FALSE}
+typeof(c(TRUE, 1L))
+#> [1] "integer"
+typeof(c(1L, 1.5))
+#> [1] "double"
+typeof(c(1.5, "a"))
+#> [1] "character"
+```
+
+
+### 1.3.2 Test Functions
+
+Sometimes you want to do different things based on the type of vector. One option is to use `typeof()`. Another is to use a test function which returns a TRUE or FALSE. Base R provides many functions like `is.vector()` and `is.atomic()`.
+
+### 1.3.3 Scalars and Recylcing Rules
+
+R use recycling, to make the shorter vector be repeated, or recycled, to the same length as the longer vector.
+
+```{r, eval=FALSE}
+sample(10) + 100
+#>  [1] 107 104 103 109 102 101 106 110 105 108
+runif(10) > 0.5
+#>  [1]  TRUE  TRUE  TRUE  TRUE  TRUE  TRUE  TRUE FALSE FALSE FALSE
+
+```
+
+When adding two vectors with different length, R wil expand the shortest vector to the same length as the longest, This is silent except when the length of the longer is not an integer multiple of the length of the shorter:
+
+```{r}
+1:10 + 1:3
+```
+
+Note that in tibble, we are supposed to have two columns with same length, if not, it will raise an error:
+```{r}
+tibble(x = 1:4, y = 1:2)
+```
+What we need to do:
+```{r, eval=FALSE}
+tibble(x = 1:4, y = rep(1:2, 2))
+#> # A tibble: 4 x 2
+#>       x     y
+#>   <int> <int>
+#> 1     1     1
+#> 2     2     2
+#> 3     3     1
+#> 4     4     2
+```
+
+### 1.3.4 Naming Vectors
+
+All types of vectors can be named. You can name them during creation with `c()`:
+```{r}
+c(x = 1, y = 2, z = 4)
+
+
+```
+Or
+```{r}
+set_names(1:3, c("a", "b", "c"))
+```
+
+### 1.3.5 Subsetting
+
+We use `[ ]` as the subsetting function. Here are some common subsetting methods. 
+
+```{r}
+x <- c("one", "two", "three", "four", "five")
+x[c(3, 2, 5)]
+```
+
+```{r}
+## use `True` value as the index
+x <- c(10, 3, NA, 5, 8, 1, NA)
+x[!is.na(x)]
+```
+```{r}
+## use name as the index
+x <- c(abc = 1, def = 2, xyz = 5)
+x[c("xyz", "def")]
+```
+```{r}
+# return all elements
+x[]
+```
+

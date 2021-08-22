@@ -1,0 +1,62 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+table1
+```
+```{r}
+table2
+```
+
+```{r}
+table3
+```
+
+```{r}
+table4a
+```
+
+```{r}
+table4b
+```
+
+### Compute the rate for table2, and table4a + table4b. You will need to perform four operations:
+
+1. Extract the number of TB cases per country per year.
+2. Extract the matching population per country per year.
+3. Divide cases by population, and multiply by 10000.
+4. Store back in the appropriate place.
+Which representation is easiest to work with? Which is hardest? Why?
+
+```{r}
+t2_case <- filter(table2, type=='cases') %>%
+  rename(cases = count) %>%
+  arrange(country, year) 
+
+t2_population <- filter(table2, type=='population') %>%
+  rename(population=count) %>%
+  arrange(country, year)
+```
+
+Then create a new data frame with the population and cases columns, and calculate the cases per capita in a new column.
+
+```{r}
+t2_case_per_pop <- tibble(
+  year = t2_case$year,
+  country = t2_case$country,
+  cases = t2_case$cases,
+  population = t2_population$population
+)%>%
+  mutate(cases_per_pop = cases / population * 10000) %>%
+  select(country, year, cases_per_pop)
+```
+
+

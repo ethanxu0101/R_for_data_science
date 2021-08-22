@@ -1,0 +1,26 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## 20.3 Important Types of atomic vector
+
+```{r}
+library(tidyverse)
+```
+
+
+### 1. Describe the difference between `is.finite(x`) and `!is.infinite(x)`
+
+Ans: To find out, try the functions on a numeric vector that includes at least one number and the four special values `(NA, NaN, Inf, -Inf)`.
+
+```{r}
+x <- c(0, NA, NaN, Inf, -Inf)
+is.finite(x)
+
+!is.infinite(x)  ## infinite only considers Inf and -Inf as True
+```
+
+### 5. What functions from the readr package allow you to turn a string into logical, integer, and double vector?
+
+Ans: `parse_logical`, `parse_integer`, `parse_number`

@@ -1,0 +1,69 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### Function Basics
+
+There are __three__ key steps to creating a new function:
+
+1. You need to pick a __name__ for the function. 
+
+2. You list the inputs, or __arguments__, to the function inside function. Here we have just one argument. If we had more the call would look like function(x, y, z).
+
+3. You place the code you have developed in body of the function, a `{` block that immediately follows function(...).
+
+
+A rescale function example: 
+```{r}
+
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE)  ## range returns the min and max of an array
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01(c(0, 5, 10))
+```
+```{r}
+range(c(5, 10, 1, 20))
+```
+
+### Conditional Execution
+
+An `if` statement allows you to conditionally execute code. It looks like this:
+
+```{r, eval=FALSE}
+if (condition) {
+  # code executed when condition is TRUE
+} else {
+  # code executed when condition is FALSE
+}
+```
+
+You can chain multiple if statements together: 
+
+```{r, eval=FALSE}
+if (this) {
+  # do that
+} else if (that) {
+  # do something else
+} else {
+  # 
+}
+
+```
+
+But if you end up with a very long series of chained if statements, you should consider rewriting. One useful technique is the `switch()` function. It allows you to evaluate selected code based on position or name.
+
+```{r, eval=FALSE}
+> function(x, y, op) {
+>   switch(op,
+>     plus = x + y,
+>     minus = x - y,
+>     times = x * y,
+>     divide = x / y,
+>     stop("Unknown op!")
+>   )
+> }
+```
+

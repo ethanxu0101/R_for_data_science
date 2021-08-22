@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(nycflights13)
+library(tidyverse)
+```
+
+The last key verb is `summarise()`. It collapses a data frame to a single row:
+
+The argument `na.rm` removes the missing values prior to computation. 
+
+```{r}
+summarise(flights, delay = mean(dep_delay, na.rm = TRUE))
+```
+
+The real interesting part about `summarise()` is that we can combine it with `group_by()` to figure out the statistic of the group we are interested in. 
+
+```{r}
+by_day <- group_by(flights, year, month, day)
+summarise(by_day, mean(dep_delay, na.rm= TRUE))
+```
+
+
+__5.6.1 The power of pipe__: Combine multiple operations with the pipe `%>%`; 
+
+As suggested by this reading, a good way to pronounce %>% when reading code is “then”.
+
+```{r}
+delays <- flights %>%
+    group_by(dest) %>%
+    summarise(
+      count = n(), 
+      dist = mean(distance, na.rm = TRUE),
+      delay = mean(arr_delay, na.rm = TRUE)
+    ) %>%
+    filter(count > 20, dest != 'HNL')
+```
+
+```{r}
+ggplot(data = delays, mapping = aes(x = dist, y = delay)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)
+```
+
+__5.6.2. Dealing with missing values__: 
+
+using `na.rm = TRUE`; 
+
+```{r}
+not_cancelled <- flights %>% 
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+not_cancelled %>% 
+  group_by(year, month, day) %>% 
+  summarise(mean = mean(dep_delay))
+```
+
+__5.6.3. Counts__
+You’ve seen `n()`, which takes no arguments, and returns the size of the current group. To count the number of non-missing values, use `sum(!is.na(x))`. To count the number of distinct (unique) values, use `n_distinct(x)`.
+
+* Whenever you do any aggregation, it’s always a good idea to include either a count `(n())`, or a count of non-missing values `(sum(!is.na(x)))`. 
+
+```{r}
+delays <- not_cancelled %>%
+    group_by(tailnum) %>%
+    summarise(delay = mean(arr_delay))
+
+ggplot(data = delays, mapping = aes(x=delay)) + geom_freqpoly(binwidth=10)
+```
+__5.6.4 Useful Summary Functions__
+
+* Counts and proportions of logical values: e.g. `sum(x > 10)`, `mean(y == 0)`. When used with numeric functions, TRUE is converted to 1 and FALSE to 0. This makes `sum()` and `mean()` very useful: `sum(x)` gives the number of TRUEs in x, and `mean(x)` gives the proportion.
+
+
+
+
+__Exercise__
+
+
+2. Come up with another approach that will give you the same output as `not_cancelled %>% count(dest)` and `not_cancelled %>% count(tailnum, wt = distance)` (without using count()).
+
+```{r}
+not_cancelled %>% count(dest)
+```
+
+```{r}
+not_cancelled %>% 
+    group_by(dest) %>%
+    summarise(n = length(dest))
+    ## Or summarise(n = n())
+  
+```
+
+```{r}
+not_cancelled %>% count(tailnum, wt = distance)
+```
+```{r}
+not_cancelled %>% 
+  group_by(tailnum) %>%
+  summarise(n = sum(distance))
+```
+
+4. Look at the number of cancelled flights per day. Is there a pattern? Is the proportion of cancelled flights related to the average delay?
+
+```{r}
+cancelled_per_day <- flights %>%
+                     mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %>%
+                     group_by(year, month, day) %>%
+                     summarise(flights_num = n(), cancelled_num = sum(cancelled))
+```
+
+```{r}
+ggplot(data = cancelled_per_day) + geom_point(aes(x=flights_num, y=cancelled_num))
+```
+```{r}
+cancelled_per_day <- flights %>%
+                     mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %>%
+                     group_by(year, month, day) %>%
+                     summarise(average_delay = mean(arr_delay, na.rm=TRUE), cancelled_prob = mean(cancelled))
+
+ggplot(data = cancelled_per_day) + geom_point(aes(x=cancelled_prob, y=average_delay))
+```
+5. Which carrier has the worst delays? Challenge: can you disentangle the effects of bad airports vs. bad carriers? Why/why not? (Hint: think about `flights %>% group_by(carrier, dest) %>% summarise(n())`)
+
+```{r}
+flights %>% 
+group_by(carrier) %>%
+summarise(mean_arr_delay = mean(arr_delay, na.rm=TRUE)) %>%
+arrange(desc(mean_arr_delay))
+```
+
+Which airline corresponds to carrier 'F9'?
+
+```{r}
+head(filter(airlines, carrier=='F9'))
+```
+
+You can get part of the way to disentangling the effects of airports versus bad carriers by comparing the average delay of each carrier to the average delay of flights within a route.
+
+
+```{r}
+flights %>%
+  filter(!is.na(arr_delay)) %>%
+  group_by(origin, dest, carrier) %>%
+  summarise(arr_delay_mean = mean(arr_delay))
+```

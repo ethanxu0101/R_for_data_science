@@ -1,0 +1,246 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## 19.2 When should you write a function ?
+
+### 1. Why is `TRUE` not a parameter to `rescale01()`? What would happen if `x` contained a single missing value, and `na.rm` was `FALSE`?
+
+The code for `rescale01()` is reproduced below.
+```{r}
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE, finite = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01_alt <- function(x, na.rm = FALSE) {
+  rng <- range(x, na.rm = na.rm, finite = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01_alt_2 <- function(x, na.rm = FALSE, finite=FALSE) {
+  rng <- range(x, na.rm = na.rm, finite = finite)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01_alt(c(NA, 1:5))
+rescale01_alt(c(NA, 1:5))
+rescale01_alt(c(NA, 1:5), na.rm = FALSE)
+rescale01_alt_2(c(NA, 1:5), na.rm = FALSE, finite=FALSE)
+```
+* If we move the argument `na.rm` into function input, the result is fine. 
+
+* The option `finite = TRUE` to range() will drop all non-finite elements, and `NA` is a non-finite element. If we set `finite = FALSE`, then the result would be all `NA` if the list containing any 'NA'.  
+
+
+### 2. In the second variant of `rescale01()`, infinite values are left unchanged. Rewrite `rescale01()` so that `-Inf` is mapped to 0, and `Inf` is mapped to 1.
+
+```{r}
+rescale02 <- function(x) {
+  rng <- range(x, na.rm = TRUE, finite = TRUE)
+  y <- (x - rng[1]) / (rng[2] - rng[1])
+  y[y == -Inf] <- 0
+  y[y == Inf] <- 1
+  y
+}
+
+rescale02(c(Inf, -Inf, 0:5, NA))
+```
+
+### 3. Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need? Can you rewrite it to be more expressive or less duplicative?
+
+```{r}
+mean(is.na(x))  ## calculate the proportion of NA values
+
+x / sum(x, na.rm = TRUE)  ## standardize a vector so that it sums to one
+
+sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)  ## standard deviation divided by the mean (coefficient of variation)
+```
+
+
+```{r, eval=FALSE}
+prop_na <- function(x){
+  mean(is.na(x))
+}
+
+sum_to_one <- function(x){
+  x / sum(x, na.rm=TRUE)
+}
+
+coef_variation <- function(x, na.rm = FALSE) {
+  sd(x, na.rm = na.rm) / mean(x, na.rm = na.rm)
+}
+```
+
+### 4. write your own functions to compute the variance and skewness of a numeric vector. Variance is defined as
+$$
+\mathrm{Var}(x) = \frac{1}{n - 1} \sum_{i=1}^n (x_i - \bar{x}) ^2 \text{,}
+$$, 
+where $\bar{x} = (\sum_i^n x_i) / n$ is the sample mean. Skewness is defined as 
+$$
+\mathrm{Skew}(x) = \frac{\frac{1}{n-2}\left(\sum_{i=1}^n(x_i - \bar x)^3\right)}{\mathrm{Var}(x)^{3/2}} \text{.}
+$$
+
+
+```{r, eval=FALSE}
+variance <- function(x){
+  n <- length(x)
+  m <- mean(x, na.rm=TRUE)
+  sq_err <- (x-m)^2
+  sum(sq_err) / (n-1)
+}
+
+
+skewness <- function(x){
+  n <- length(x)
+  m <- mean(x, na.rm=TRUE)
+  v <- var(x)
+  sum((x-m)^3 / (n-2) / v ^ (3 / 2))
+}
+
+skewness(c(1, 2, 5, 100))
+```
+
+### 5. Write `both_na()`, a function that takes two vectors of the same length and returns the number of positions that have an NA in both vectors.
+
+```{r}
+both_na <- function(x, y){
+  sum(is.na(x) & is.na(y))  ## is.na return a same length vectors in which each position has an indicator TRUE OR FALSE
+}
+
+both_na(
+  c(NA, NA, 1, 2),
+  c(NA, 1, NA, 2)
+)
+
+is.na(c(NA, NA, 1, 2))
+```
+
+### 6. What do the following functions do? Why are they useful even though they are so short?
+
+```{r, eval=FALSE}
+is_directory <- function(x) file.info(x)$isdir
+is_readable <- function(x) file.access(x, 4) == 0
+```
+
+The function `is_directory()` checks whether the path in `x` is a directory. The function `is_readable()` checks whether the path in `x` is readable, meaning that the file exists and the user has permission to open it. These functions are useful even though they are short because their names make it much clearer what the code is doing.
+
+
+## 19.4 Conditional Execution
+
+### 1. What’s the difference between `if` and `ifelse()`? Carefully read the help and construct three examples that illustrate the key differences.
+
+ANS: The keyword if tests a single condition, while ifelse() tests each element.
+
+### 2. Write a greeting function that says “good morning”, “good afternoon”, or “good evening”, depending on the time of day. (Hint: use a time argument that defaults to lubridate::now(). That will make it easier to test your function.)
+
+```{r}
+library(lubridate)
+greet <- function(time = lubridate::now()){
+  hr <- lubridate::hour(time)
+  if (hr < 12){
+    print('good morning')
+  }else if (hr < 17){
+    print("good afternoon")
+  }else{
+    print("good evening")
+  }
+}
+```
+
+### 3. Implement a `fizzbuzz()` function. It takes a single number as input. If the number is divisible by three, it returns “fizz”. If it’s divisible by five it returns “buzz”. If it’s divisible by three and five, it returns “fizzbuzz”. Otherwise, it returns the number. Make sure you first write working code before you create the function.
+
+```{r}
+fizzbuzz <- function(x){
+  if (!(x %% 3) & !(x %% 5)){
+   "fizzbuzz"
+  }else if (!(x%%3)){
+    "fizz"
+  }else if (!(x%%5)){
+    "buzz"
+  }else{
+    as.character(x)
+  }
+}
+
+fizzbuzz(6)
+```
+
+Instead of only accepting one number as an input, we could a FizzBuzz function that works on a vector. The `case_when()` function vectorizes multiple if-else conditions, so is perfect for this task.
+
+```{r}
+fizzbuzz_vec <- function(x){
+  case_when(!(x%%3) & !(x%%5) ~ 'fizzbuzz',
+            !(x%%3) ~ "fizz",
+            !(x%%5) ~ "buzz",
+            TRUE ~ as.character(x)
+            )
+}
+
+fizzbuzz_vec2(c(0, 1, 2, 3, 5, 9, 10, 12, 15))
+```
+
+
+### 4. How could you use `cut()` to simplify this set of nested if-else statements?
+
+```{r}
+if (temp <= 0) {
+  "freezing"
+} else if (temp <= 10) {
+  "cold"
+} else if (temp <= 20) {
+  "cool"
+} else if (temp <= 30) {
+  "warm"
+} else {
+  "hot"
+}
+
+
+temp <- seq(-10, 50 ,by=5)
+cut(temp, c(-Inf, 0, 10, 20 ,30, Inf),
+    right=TRUE,  ## controls open interval or closed interval
+    labels = c("freezing", "cold", "cool", "warm", "hot")
+    )
+```
+
+### 5. What happens if you use `switch()` with numeric values?
+
+
+Ans: In switch(n, ...), if n is numeric, it will return the nth argument from .... This means that if n = 1, switch() will return the first argument in ..., if n = 2, the second, and so on;
+
+* If you use a non-integer number for the first argument of switch(), it will ignore the non-integer part.
+
+```{r}
+switch(1, 'apple', 'banana', 'watermelon')
+switch(2, 'apple', 'banana', 'watermelon')
+switch(1.8, 'apple', 'banana', 'watermelon')
+
+
+```
+### 6. What does this `switch()` call do? What happens if `x` is "e"?
+
+```{r, eval=FALSE}
+x <- "e"
+switch(x,
+  a = ,
+  b = "ab",
+  c = ,
+  d = "cd"
+)
+```
+
+ANS: The code in the question is shorter way of writing the following.
+
+```{r, eval=FALSE}
+switch(x,
+  a = "ab",
+  b = "ab",
+  c = "cd",
+  d = "cd",
+  NULL # value to return if x not matched
+)
+```
+
+
