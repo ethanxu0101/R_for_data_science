@@ -1,0 +1,42 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+Read csv file and save it into `house_price_df`
+
+```{r}
+house_price_df <- read_csv('train.csv')
+```
+
+Investigate the distribution of house price `SalePrice` by plotting
+
+```{r}
+summary(house_price_df$SalePrice)
+```
+
+
+```{r}
+ggplot(data=house_price_df, aes(SalePrice)) + 
+  geom_histogram(bins=30)
+```
+```{r}
+
+ggplot(data=house_price_df, aes(SalePrice)) + 
+  geom_freqpoly()
+
+```
+2. Once we determine the target, we can then pick up serveral features to investigate the relationship between them. (use scatter plot for numeric values and box plots for categorical features)
+
+For example, we can select `GrLivArea`, `TotalBsmtSF`, `OverallQual` `YearBuilt`
+
+```{r}
+ggplot(data=house_price_df, aes(x=GrLivArea, y=SalePrice)) + geom_point()
+```
+
