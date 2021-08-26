@@ -1,0 +1,65 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+library(rcfss)
+data("scorecard")
+glimpse(scorecard)
+```
+
+## Q1: Which type of college has the highest average SAT score?
+
+```{r}
+scorecard %>% 
+  group_by(type) %>%
+  summarise(ave_SAT = mean(satavg, na.rm=TRUE)) %>%
+  arrange(desc(ave_SAT))
+```
+
+```{r}
+ggplot(data=scorecard, mapping=aes(x=type, y=satavg)) + geom_boxplot()
+```
+Double-check with histogram or frequency polygon:
+
+```{r}
+ggplot(data=scorecard, mapping = aes(x = satavg)) + geom_histogram() + facet_wrap(vars(type))
+```
+
+```{r}
+ggplot(data=scorecard, mapping=aes(x=satavg, color=type)) + geom_freqpoly()
+```
+```{r}
+ggplot(data = scorecard, mapping=aes(x=type)) + geom_bar()
+```
+
+## Q2 What is the relationship between net cost of attendance and faculty salaries? How does this relationship differ across types of colleges?
+
+```{r}
+ggplot(data=scorecard, mapping = aes(x = netcost, y=avgfacsal)) + geom_point() + geom_smooth()
+```
+
+```{r}
+ggplot(data=scorecard, mapping = aes(x = netcost, y=avgfacsal)) + 
+  geom_point() + 
+  geom_smooth() + 
+  facet_wrap(~type)
+```
+```{r}
+ggplot(data=scorecard, mapping = aes(x = netcost, y=avgfacsal, color=type)) + 
+  geom_point(alpha=.2) + 
+  geom_smooth()
+```
+
+## Q3 How are a college’s Pell Grant recipients related to the average student’s education debt?
+
+```{r}
+ggplot(data=scorecard, mapping=aes(x=debt, y=pctpell)) + geom_point(alpha=.2) +  geom_smooth()
+```
+

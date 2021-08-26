@@ -148,3 +148,14 @@ flights %>%
   group_by(origin, dest, carrier) %>%
   summarise(arr_delay_mean = mean(arr_delay))
 ```
+
+```{r}
+mtcars %>%
+  group_by(cyl) %>%
+  summarize_at(.vars = vars(mpg, disp, qsec), .funs = mean)
+```
+
+```{r}
+mtcars
+```
+

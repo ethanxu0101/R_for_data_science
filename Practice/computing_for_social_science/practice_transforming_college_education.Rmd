@@ -1,0 +1,93 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+library(rcfss)
+data("scorecard")
+glimpse(scorecard)
+```
+
+### Q1: Generate a data frame of schools with a greater than 40% share of first-generation students
+
+```{r}
+first_generation_40 <- scorecard %>%
+  filter(firstgen > 0.4, na.rm=TRUE) %>%
+  select(unitid, name)
+```
+
+
+### Q2: Generate a data frame with the 10 most expensive colleges in 2018-19 based on net cost of attendance
+```{r}
+most_expensive_10 <- scorecard %>%
+  arrange(desc(netcost)) %>%
+  slice(1:10)
+```
+
+we can also use `slice_max` in `dplyr` to accomplish the same thing in one line of code.
+
+```{r}
+slice_max(.data = scorecard, n = 10, netcost)
+```
+
+### Q3 Generate a data frame with the average SAT score for each type of college
+
+```{r}
+average_SAT <- scorecard %>%
+  group_by(type) %>%
+  summarise(mean_SAT = mean(satavg, na.rm =TRUE))
+```
+
+### Q4: Calculate for each school how many students it takes to pay the average faculty member’s salary and generate a data frame with the school’s name and the calculated value
+
+let's first check if there are repeated schools or `NA`.
+```{r}
+n_distinct(scorecard$unitid)
+n_distinct(scorecard$name)
+any(is.na(scorecard$name))
+```
+
+```{r}
+count_students <- scorecard %>%
+  mutate(num_students = avgfacsal / netcost) %>%
+  filter(!is.na(num_students)) %>%
+  select(name, num_students) %>%
+  mutate_if(is.numeric, scales::number, accuracy=.01) # 1 means only integer, .1, keep one decimal 
+  
+```
+
+
+### Q5 Calculate how many private, nonprofit schools have a smaller net cost than the University of Chicago   
+
+Hint: the result should be a data frame with one row for the University of Chicago, and a column containing the requested value.
+
+
+Report the number as the total number of schools with `row_number()``
+
+```{r}
+scorecard %>%
+  filter(type  == 'Private, nonprofit') %>%
+  arrange(netcost) %>%
+  mutate(school_cheaper = row_number() - 1) %>%
+  filter(name == 'University of Chicago') %>%
+  glimpse
+  
+```
+
+Report the number as the percentage of schools with `percent_rank`:
+
+```{r}
+scorecard %>%
+  filter(type == 'Private, nonprofit') %>%
+  mutate(netcost_rank = percent_rank(netcost)) %>%
+  filter(name=='University of Chicago') %>%
+  glimpse()
+```
+

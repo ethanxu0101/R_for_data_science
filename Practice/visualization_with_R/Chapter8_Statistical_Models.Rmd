@@ -1,0 +1,149 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Chapter 8 Statistical Models
+
+A statistical model describes the relationship between one or more explanatory variables and one or more response variables. Graphs can help to visualize these relationships. In this section we’ll focus on models that have a single response variable that is either quantitative (a number) or binary (yes/no).
+
+## 8.1 Correlation Plots
+
+Correlation plots help you to visualize the pairwise relationships between a set of quantitative variables by displaying their correlations using color or shading.
+
+Consider the Saratoga Houses dataset, which contains the sale price and characteristics of Saratoga County, NY homes in 2006. In order to explore the relationships among the quantitative variables, we can calculate the Pearson Product-Moment correlation coefficients.
+
+```{r}
+data(SaratogaHouses, package="mosaicData")
+
+# select numeric variables
+df <- dplyr::select_if(SaratogaHouses, is.numeric)
+
+# calulate the correlations
+r <- cor(df, use="complete.obs")
+round(r,2)
+```
+
+The `ggcorrplot` function in the `ggcorrplot` package can be used to visualize these correlations. By default, it creates a ggplot2 graph were darker red indicates stronger positive correlations, darker blue indicates stronger negative correlations and white indicates no correlation.
+
+```{r}
+library(ggplot2)
+library(ggcorrplot)
+ggcorrplot(r)
+```
+From the graph, an increase in number of bathrooms and living area are associated with increased price, while older homes tend to be less expensive. Older homes also tend to have fewer bathrooms.
+
+The ggcorrplot function has a number of options for customizing the output. For example
+
+* `hc.order = TRUE` reorders the variables, placing variables with similar correlation patterns together.
+* `type = "lower`" plots the lower portion of the correlation matrix.
+* `lab = TRUE` overlays the correlation coefficients (as text) on the plot.
+
+```{r}
+ggcorrplot(r, hc.order = TRUE,
+           type = "lower", 
+           lab = TRUE)
+```
+## 8.2 Linear Regression (`visreg`)
+
+Linear regression allows us to explore the relationship between a quantitative response variable and an explanatory variable while other variables are held constant.
+
+Consider the prediction of home prices in the Saratoga dataset from lot size (square feet), age (years), land value (1000s dollars), living area (square feet), number of bedrooms and bathrooms and whether the home is on the waterfront or not.
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+houses_lm <- lm(price ~ lotSize + age + landValue +
+                  livingArea + bedrooms + bathrooms +
+                  waterfront, 
+                data = SaratogaHouses)
+tidy(houses_lm)
+```
+
+From the results, we can estimate that an increase of one square foot of living area is associated with a home price increase of $75, holding the other variables constant. Additionally, waterfront home cost approximately $120,726 more than non-waterfront home, again controlling for the other variables in the model.
+
+The `visreg` package provides tools for visualizing these conditional relationships.
+
+The `visreg` function takes __(1) the model__ and __(2) the variable of interest__ and plots the conditional relationship, controlling for the other variables. The option `gg = TRUE` is used to produce a ggplot2 graph.
+
+
+```{r}
+library(visreg)
+visreg(houses_lm, "livingArea", gg=TRUE)
+```
+```{r}
+visreg(houses_lm, "livingArea", gg=TRUE, by = "waterfront")
+```
+
+
+
+Continuing the example, the price difference between waterfront and non-waterfront homes is plotted, controlling for the other seven variables. Since a `ggplot2` graph is produced, other `ggplot2` functions can be added to customize the graph.
+
+```{r}
+# conditional plot of price vs. waterfront location
+visreg(houses_lm, "waterfront", gg = TRUE) +
+  scale_y_continuous(label = scales::dollar) +
+  labs(title = "Relationship between price and location",
+       subtitle = "controlling for lot size, age, land value, bedrooms and bathrooms",
+       caption = "source: Saratoga Housing Data (2006)",
+       y = "Home Price",
+       x = "Waterfront")
+```
+## 8.3 Logistic Regression (also with `visreg`)
+
+Logistic regression can be used to explore the relationship between a binary response variable and an explanatory variable while other variables are held constant. Binary response variables have two levels (yes/no, lived/died, pass/fail, malignant/benign). As with linear regression, we can use the `visreg` package to visualize these relationships.
+
+Using the CPS85 data let’s predict the log-odds of being married, given one’s sex, age, race and job sector.
+```{r}
+data(CPS85, package = "mosaicData")
+cps85_glm <- glm(married ~ sex + age + race + sector, 
+                 family="binomial", 
+                 data=CPS85)
+```
+
+
+Using the fitted model, let’s visualize the relationship between age and the probability of being married, holding the other variables constant. 
+
+The `scale = "response"` option creates a plot based on a probability (rather than log-odds) scale.
+
+```{r}
+visreg(cps85_glm, "age", gg=TRUE, scale="response") +
+  labs(y = "Prob(Married)", 
+       x = "Age",
+       title = "Relationship of age and marital status",
+       subtitle = "controlling for sex, race, and job sector",
+       caption = "source: Current Population Survey 1985")
+```
+The probability of being married is estimated to be roughly 0.5 at age 20 and decreases to 0.1 at age 60, controlling for the other variables.
+
+```{r}
+log_mod <- logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(married ~ sex + age + race + sector, data=CPS85)
+
+visreg(log_mod, "age", gg=TRUE, scale="response") +
+  labs(y = "Prob(Married)", 
+       x = "Age",
+       title = "Relationship of age and marital status",
+       subtitle = "controlling for sex, race, and job sector",
+       caption = "source: Current Population Survey 1985")
+```
+
+
+We can create multiple conditional plots by adding a by option. For example, the following code will plot the probability of being married by age, seperately for men and women, controlling for race and job sector.
+
+```{r}
+visreg(cps85_glm, "age",
+       by = "sex",
+       gg = TRUE, 
+       scale="response") +
+  labs(y = "Prob(Married)", 
+       x = "Age",
+       title = "Relationship of age and marital status",
+       subtitle = "controlling for race and job sector",
+       caption = "source: Current Population Survey 1985")
+```
+
+## 8.4 Survival plots
+
+## 8.5 Mosaic plots

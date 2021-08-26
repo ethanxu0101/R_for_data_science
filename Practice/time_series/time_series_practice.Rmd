@@ -8,3 +8,426 @@ library(tidyverse)
 ```
 
 
+```{r}
+souvenir <- scan("http://robjhyndman.com/tsdldata/data/fancy.dat")
+souvenir_time_series <- ts(souvenir, frequency=12, start=c(1987, 1))
+souvenir_time_series_df <- as_tibble(souvenir_time_series)
+```
+```{r}
+kings <- scan("http://robjhyndman.com/tsdldata/misc/kings.dat",skip=3)
+kings_time_series <- ts(kings)
+```
+
+
+To plot the time series of the age of death of 42 successive kings of England, we type:
+```{r}
+plot.ts(kings_time_series)
+```
+## 1.1. Decomposing Time Series
+
+Decomposing a time series means separating it into its constituent components, which are usually a trend component and an irregular component, and if it is a seasonal time series, a seasonal component.
+
+### 1.1.1 Decomposing Non-Seasonal Data
+```{r}
+library("TTR")
+```
+
+The `SMA()` function in the “TTR” R package can be used to smooth time series data using a simple moving average. To use the SMA() function, you need to specify the order (span) of the simple moving average, using the parameter `n`. For example, to calculate a simple moving average of order 5, we set `n=5` in the SMA() function.
+
+
+
+To smooth the time series using a simple moving average of order 3, and plot the smoothed time series data, we type:
+```{r}
+kings_time_series_SMA3 <- SMA(kings_time_series, n = 3)
+plot.ts(kings_time_series_SMA3)
+```
+There still appears to be quite a lot of random fluctuations in the time series smoothed using a simple moving average of order 3. Thus, to estimate the trend component more accurately, we might want to try smoothing the data with a simple moving average of a higher order. For example, we can try using a simple moving average of order 8:
+```{r}
+kings_time_series_SMA8 <- SMA(kings_time_series, n=8)
+plot.ts(kings_time_series_SMA8)
+```
+
+The data smoothed with a simple moving average of order 8 gives a clearer picture of the trend component, and we can see that the age of death of the English kings seems to have decreased from about 55 years old to about 38 years old during the reign of the first 20 kings, and then increased after that to about 73 years old by the end of the reign of the 40th king in the time series.
+
+
+### 1.1.2 Decomposing Seasonal Data
+
+A seasonal time series consists of __a trend component__, __a seasonal component__ and __an irregular component__. Decomposing the time series means separating the time series into these three components: that is, estimating these three components.
+
+To estimate the trend component and seasonal component of a seasonal time series that can be described using an additive model, we can use the `decompose()` function in R. This function estimates the trend, seasonal, and irregular components of a time series that can be described using an additive model.
+
+The function `decompose()` returns a list object as its result, where the estimates of the seasonal component, trend component and irregular component are stored in named elements of that list objects, called __seasonal__, __trend__, and __random__ respectively.
+
+```{r}
+births <- scan("http://robjhyndman.com/tsdldata/data/nybirths.dat")
+births_time_series <- ts(births, frequency=12, start=c(1946,1))
+births_time_series
+```
+
+```{r}
+plot.ts(births_time_series)
+```
+To estimate the trend, seasonal and irregular components of this time series,
+```{r}
+births_time_series_components <- decompose(births_time_series)
+```
+
+To check seasonal, trend and random components, respectively,
+```{r}
+births_time_series_components$seasonal
+```
+The estimated seasonal factors are given for the months January-December, and are the same for each year. The largest seasonal factor is for July (about 1.46), and the lowest is for February (about -2.08), indicating that there seems to be a peak in births in July and a trough in births in February each year.
+
+
+We can plot the estimated trend, seasonal, and irregular components of the time series by using the `plot()` function,
+```{r}
+plot(births_time_series_components)
+```
+### 1.1.3 Seasonal Adjusting
+After we find the seasonal trend, we can seasonaly adjust the time series by estimating the seasonal component, and then subtracting the estimated seasonal component from the original time series. 
+
+```{r}
+births_time_series_no_seasonal <- births_time_series - births_time_series_components$seasonal
+plot(births_time_series_no_seasonal)
+```
+You can see that the seasonal variation has been removed from the seasonally adjusted time series. The seasonally adjusted time series now just contains the trend component and an irregular component.
+
+
+## 1.2 Forecast using Exponential Smoothing
+Exponential smoothing can be used to make short-term forecasts for time series data.
+
+
+### 1.2.1 Simple Exponential Smoothing
+
+The simple exponential smoothing method provides a way of estimating the level at the current time point. Smoothing is controlled by the parameter alpha; The value of alpha; lies between 0 and 1. Values of alpha that are close to 0 mean that little weight is placed on the most recent observations when making forecasts of future values.
+
+```{r}
+rain <- scan("http://robjhyndman.com/tsdldata/hurst/precip1.dat",skip=1)
+rain_series <- ts(rain,start=c(1813))
+plot.ts(rain_series)
+```
+To make forecasts using simple exponential smoothing in R, we can fit a simple exponential smoothing predictive model using the `HoltWinters()` function in R. To use `HoltWinters()` for simple exponential smoothing, we need to set the parameters `beta=FALSE` and `gamma=FALSE`,
+
+```{r}
+
+rain_series_forecasts <- HoltWinters(rain_series, beta=FALSE, gamma=FALSE)
+rain_series_forecasts
+
+```
+The output of `HoltWinters()` tells us that the estimated value of the alpha parameter is about 0.024. we have stored the output of the `HoltWinters()` function in the list variable `rain_series_forecasts`. The forecasts made by `HoltWinters()` are stored in a named element of this list variable called `fitted`, so we can get their values by typing:
+
+```{r}
+rain_series_forecasts$fitted
+plot(rain_series_forecasts)
+```
+
+The plot shows the original time series in black, and the forecasts as a red line. The time series of forecasts is much smoother than the time series of the original data here.
+
+As a measure of the accuracy of the forecasts, we can calculate the sum of squared errors for the in-sample forecast errors, which is stored in a named element of the list variable `rainseriesforecasts` called `SSE`,
+```{r}
+rain_series_forecasts$SSE
+```
+
+### Make forecast outside the time period range
+As explained above, by default HoltWinters() just makes forecasts for the time period covered by the original data, which is 1813-1912 for the rainfall time series. We can make forecasts for further time points using `forecast.HoltWinters()` function in the R `forecast` package. 
+
+```{r}
+library(forecast)
+```
+When using the `forecast.HoltWinters()` function, as its first argument (input), you pass it the predictive model that you have already fitted using the `HoltWinters()` function. For example, in the case of the rainfall time series, we stored the predictive model made using `HoltWinters()` in the variable `rainseriesforecasts`. You specify how many further time points you want to make forecasts for by using the “h” parameter in `forecast.HoltWinters()`. For example, to make a forecast of rainfall for the years 1814-1820 (__8__ more years) using `forecast.HoltWinters()`, we type:
+
+```{r}
+rain_series_forecasts2 <- forecast:::forecast.HoltWinters(rain_series_forecasts, h=8) ## 8 more points
+rain_series_forecasts2
+```
+To plot the predictions made by forecast.HoltWinters(), we can use the `“`plot.forecast()`”` function:
+```{r}
+forecast:::plot.forecast(rain_series_forecasts2)
+```
+Here the forecasts for 1913-1920 are plotted as a blue line, the 80% prediction interval as an shaded area, and the 95% prediction interval as a grey shaded area.
+
+
+To figure out whether this is the case, we can obtain a correlogram of the in-sample forecast errors for lags 1-20. We can calculate a correlogram of the forecast errors using the “acf()” function in R. To specify the maximum lag that we want to look at, we use the “lag.max” parameter in acf().
+
+For example, to calculate a correlogram of the in-sample forecast errors for the London rainfall data for lags 1-20, we type:
+
+```{r}
+acf(rain_series_forecasts2$residuals, lag.max=20, na.action = na.pass)
+```
+
+To be sure that the predictive model cannot be improved upon, it is also a good idea to check whether the forecast errors are normally distributed with mean zero and constant variance. To check whether the forecast errors have constant variance, we can make a time plot of the in-sample forecast errors:
+
+```{r}
+plot.ts(rain_series_forecasts2$residuals)
+```
+
+To check whether the forecast errors are normally distributed with mean zero, we can plot a histogram of the forecast errors, with an overlaid normal curve that has mean zero and the same standard deviation as the distribution of forecast errors. To do this, we can define an R function `plot_Forecast_Errors()`, below:
+
+
+```{r}
+plotForecastErrors <- function(forecasterrors)
+  {
+     # make a histogram of the forecast errors:
+     mybinsize <- IQR(forecasterrors, na.rm=TRUE)/4
+     mysd   <- sd(forecasterrors, na.rm=TRUE)
+     mymin  <- min(forecasterrors, na.rm=TRUE) - mysd*5
+     mymax  <- max(forecasterrors, na.rm=TRUE) + mysd*3
+     # generate normally distributed data with mean 0 and standard deviation mysd
+     mynorm <- rnorm(10000, mean=0, sd=mysd)
+     mymin2 <- min(mynorm, na.rm=TRUE)
+     mymax2 <- max(mynorm, na.rm=TRUE)
+     if (mymin2 < mymin) { mymin <- mymin2 }
+     if (mymax2 > mymax) { mymax <- mymax2 }
+     # make a red histogram of the forecast errors, with the normally distributed data overlaid:
+     mybins <- seq(mymin, mymax, mybinsize)
+     hist(forecasterrors, col="red", freq=FALSE, breaks=mybins)
+     # freq=FALSE ensures the area under the histogram = 1
+     # generate normally distributed data with mean 0 and standard deviation mysd
+     myhist <- hist(mynorm, plot=FALSE, breaks=mybins)
+     # plot the normal curve as a blue line on top of the histogram of forecast errors:
+     points(myhist$mids, myhist$density, type="l", col="blue", lwd=2)
+  }
+```
+
+```{r}
+plotForecastErrors(rain_series_forecasts2$residuals)
+```
+
+### 1.2.2 Holt's Exponential Smoothing (Double Exponential Smoothing)
+If you have a time series that can be described using an additive model with increasing or decreasing trend and no seasonality, you can use Holt’s exponential smoothing to make short-term forecasts.
+
+Holt’s exponential smoothing estimates the level and slope at the current time point. Smoothing is controlled by two parameters,
+* alpha: for the estimate of the level at the current time point;
+* beta: for the estimate of the slope `b` of the trend component at the current time point;
+ As with simple exponential smoothing, the paramters alpha and beta have values between 0 and 1, and values that are close to 0 mean that little weight is placed on the most recent observations when making forecasts of future values.
+ 
+
+```{r}
+skirts <- scan("http://robjhyndman.com/tsdldata/roberts/skirts.dat",skip=5)
+skirtsseries <- ts(skirts,start=c(1866))
+plot.ts(skirtsseries)
+```
+
+We can see from the plot that there was an increase in hem diameter from about 600 in 1866 to about 1050 in 1880, and that afterwards the hem diameter decreased to about 520 in 1911. 
+
+To use `HoltWinters()` for Holt’s exponential smoothing, we need to set the parameter `gamma=FALSE`;
+
+```{r}
+skirt_series_forecasts <- HoltWinters(skirtsseries, gamma=FALSE)
+skirt_series_forecasts
+skirt_series_forecasts$SSE
+```
+We can plot the original time series as a black line, with the forecasted values as a red line on top of that, by typing:
+```{r}
+plot(skirt_series_forecasts)
+```
+If you wish, you can specify the initial values of the level and the slope b of the trend component by using the `l.start` and `b.start` arguments for the `HoltWinters()` function. It is common to set the initial value of the level to the first value in the time series (608 for the skirts data), and the initial value of the slope to the second value minus the first value (9 for the skirts data).
+
+
+Similar with simple exponential smoothing, we can make forecasts with `forecast` package. 
+
+```{r}
+skirt_series_forecasts2 <- forecast:::forecast.HoltWinters(skirt_series_forecasts, h=19) # 19 more points 
+forecast:::plot.forecast(skirt_series_forecasts2)
+```
+The forecasts are shown as a blue line, with the 80% prediction intervals as an dark shaded area, and the 95% prediction intervals as a light shaded area.
+
+
+Similar with simple exponential smoothing, we should also check that the forecast errors have constant variance over time, and are normally distributed with mean zero. We can do this by making a time plot of forecast errors, and a histogram of the distribution of forecast errors with an overlaid normal curve:
+```{r}
+plot.ts(skirt_series_forecasts2$residuals)            # make a time plot
+plotForecastErrors(skirt_series_forecasts2$residuals) # make a histogram
+```
+
+## 1.2.3 Holt-Winters Exponential Smoothing (Triple Exponential Smoothing)
+
+If you have a time series that can be described using an additive model with increasing or decreasing trend and seasonality, you can use Holt-Winters exponential smoothing to make short-term forecasts.
+
+Holt-Winters exponential smoothing estimates the __level__, __slope__ and __seasonal__ component at the current time point. Smoothing is controlled by three parameters: __alpha__ (estimates of the level), __beta__ (trend component), and __gamma__ (seasonal component).
+
+The parameters __alpha__, __beta__ and __gamma__ all have values between 0 and 1, and values that are __close to 0__ mean that __relatively little weight__ is placed on the __most recent observations__ when making forecasts of future values.
+
+```{r}
+souvenir <- scan("http://robjhyndman.com/tsdldata/data/fancy.dat")
+souvenir_time_series <- ts(souvenir, frequency=12, start=c(1987,1))
+plot.ts(souvenir_time_series)
+```
+
+As the value is too large, we can perform logrithm operation at the first place to normalize the value into a reasonable range. 
+
+```{r}
+log_souvenir_time_series <- log(souvenir_time_series)
+souvenir_time_series_forecasts <- HoltWinters(log_souvenir_time_series)
+souvenir_time_series_forecasts
+```
+
+The estimated values of alpha, beta and gamma are 0.41, 0.00, and 0.96, respectively. Some explanations about
+1. The value of alpha (0.41) is relatively low, indicating that the estimate of the level at the current time point is based upon both recent observations and some observations in the more distant past. 
+2. The value of beta is 0.00, indicating that the estimate of the slope b of the trend component is not updated over the time series, and instead is set equal to its initial value. This makes good intuitive sense, as the level changes quite a bit over the time series, but the slope b of the trend component remains roughly the same.
+3. In contrast, the value of gamma (0.96) is high, indicating that the estimate of the seasonal component at the current time point is just based upon very recent observations.
+
+```{r}
+plot(souvenir_time_series_forecasts)
+```
+To make a forecast for the future (48 months), we still use `forecast` package:
+```{r}
+souvenir_time_series_forecasts2 <- forecast:::forecast.HoltWinters(souvenir_time_series_forecasts, h=48)
+forecast:::plot.forecast(souvenir_time_series_forecasts2)
+```
+
+## 1.3 ARIMA Models
+
+Exponential smoothing methods are useful for making forecasts, and __make no assumptions about the correlations between successive values of the time series__. 
+However, if you want to make prediction intervals for forecasts made using exponential smoothing methods, the prediction intervals require that the forecast errors are uncorrelated and are normally distributed with mean zero and constant variance.
+
+While exponential smoothing methods do not make any assumptions about correlations between successive values of the time series, in some cases you can make a better predictive model by taking correlations in the data into account. Autoregressive Integrated Moving Average (ARIMA) models include an explicit statistical model for the irregular component of a time series, that allows for non-zero autocorrelations in the irregular component.
+
+
+### 1.3.1 Differencing a Time Series
+
+ARIMA models are defined for __stationary time series__. Therefore, if you start off with a __non-stationary time series__, you will first need to __difference__ the time series until you obtain a stationary time series.
+
+If you have to difference the time series $d$ times to obtain a stationary series, then you have an $ARIMA(p,d,q)$ model, where $d$ is the __order of differencing__ used.
+
+You can difference a time series using the `diff()` function in R. For example, the time series of the annual diameter of women’s skirts at the hem, from 1866 to 1911 is not stationary in mean, as the level changes a lot over time; and then we try $d=1$ and $d=2$ to differentiate the time series.
+
+```{r}
+plot.ts(skirtsseries)
+skirts_series_diff1 <- diff(skirtsseries, differences = 1)
+plot.ts(skirts_series_diff1)
+skirts_series_diff2 <- diff(skirtsseries, differences = 2)
+plot.ts(skirts_series_diff2)
+```
+
+The time series of second differences (above) does appear to be stationary in mean and variance, as the level of the series stays roughly constant over time, and the variance of the series appears roughly constant over time. 
+Now we have determined the value of $d$, next step is to determine the value of $p$ and $q$ for the ARIMA model. 
+
+
+We can also try to find $d$ for the kings' death time series. 
+```{r}
+kings_time_series_diff1 <- diff(kings_time_series, differences = 1)
+plot.ts(kings_time_series_diff1)
+```
+
+
+
+### 1.3.2 Selecting a Candidate ARIMA Model (finding p and q)
+
+If your time series is stationary, or if you have transformed it to a stationary time series by differencing $d$ times, the next step is to select the appropriate ARIMA model, which means finding the values of most appropriate values of $p$ and $q$ for an $ARIMA(p,d,q)$ model. To do this, you usually need to examine the correlogram and partial correlogram of the stationary time series.
+
+To plot a correlogram and partial correlogram, we can use the `acf()` and `pacf()` functions in R, respectively. To get the actual values of the autocorrelations and partial autocorrelations, we set `plot=FALSE` in the `acf()` and` `pacf()` functions.
+
+
+#### 1.3.2.1 Examples of the Ages at the Death of the Kings of England
+
+For example, to plot the correlogram for lags 1-20 of the once differenced time series of the ages at death of the kings of England, and to get the values of the autocorrelations, we type:
+
+```{r}
+acf(kings_time_series_diff1, lag.max=20)
+acf(kings_time_series_diff1, lag.max=20, plot=FALSE)
+```
+We see from the correlogram that the autocorrelation at lag 1 (-0.360) exceeds the significance bounds, but all other autocorrelations between lags 1-20 do not exceed the significance bounds.
+
+
+To plot the partial correlogram for lags 1-20 for the once differenced time series of the ages at death of the English kings, and get the values of the partial autocorrelations, we use the `pacf()` function, by typing:
+```{r}
+pacf(kings_time_series_diff1, lag.max=20)
+pacf(kings_time_series_diff1, lag.max=20, plot=FALSE)
+```
+
+The partial correlogram shows that the partial autocorrelations at lags 1, 2 and 3 exceed the significance bounds, are negative, and are slowly decreasing in magnitude with increasing lag (lag 1: -0.360, lag 2: -0.335, lag 3:-0.321). The partial autocorrelations tail off to zero after lag 3.
+
+Since the correlogram is zero after lag 1, and the partial correlogram tails off to zero after lag 3, this means that the following ARMA (autoregressive moving average) models are possible for the time series of first differences:
+
+1. an $ARMA(3,0)$ model, that is, an autoregressive model of order $p=3$, since the partial autocorrelogram is zero after lag 3, and the autocorrelogram tails off to zero (although perhaps too abruptly for this model to be appropriate)
+2. an $ARMA(0,1)$ model, that is, a moving average model of order $q=1$, since the autocorrelogram is zero after lag 1 and the partial autocorrelogram tails off to zero
+3. an $ARMA(p,q)$ model, that is, a mixed model with $p$ and $q$ greater than 0, since the autocorrelogram and partial correlogram tail off to zero (although the correlogram probably tails off to zero too abruptly for this model to be appropriate)
+
+We use the principle of parsimony to decide which model is best: that is, we assume that the model with the fewest parameters is best. The $ARMA(3,0)$ model has 3 parameters, the $ARMA(0,1)$ model has 1 parameter, and the $ARMA(p,q)$ model has at least 2 parameters. Therefore, the ARMA(0,1) model is taken as the best model.
+
+An $ARMA(0,1)$ model is a moving average model of order 1, or $MA(1)$ model. This model can be written as: $X_t - \mu = Z_t - (\theta * Z_t-1)$, where $X_t$ is the stationary time series we are studying (the first differenced series of ages at death of English kings), $\mu$ is the mean of time series $X_t$, $Z_t$ is white noise with mean zero and constant variance, and theta is a parameter that can be estimated.
+
+
+#### Shortcut: the `auto.arima()` function
+
+The `auto.arima()` function can be used to find the appropriate ARIMA model, eg., type “library(forecast)”, then “auto.arima(kings)”. The output says an appropriate model is ARIMA(0,1,1).
+
+```{r}
+auto.arima(kings_time_series)
+```
+
+#### 1.3.2.2 Example of the Volcanic Dust Veil in the Northern Hemisphere
+
+The file file http://robjhyndman.com/tsdldata/annual/dvi.dat contains data on the volcanic dust veil index in the northern hemisphere, from 1500-1969 (original data from Hipel and Mcleod, 1994). This is a measure of the impact of volcanic eruptions’ release of dust and aerosols into the environment. We can read it into R and make a time plot by typing:
+
+```{r}
+volcanodust <- scan("http://robjhyndman.com/tsdldata/annual/dvi.dat", skip=1)
+volcanodust_series <- ts(volcanodust,start=c(1500))
+plot.ts(volcanodust_series)
+```
+From the time plot, it appears that the random fluctuations in the time series are roughly constant in size over time, so an additive model is probably appropriate for describing this time series.
+
+Furthermore, the time series appears to be stationary in mean and variance, as its level and variance appear to be roughly constant over time. Therefore, we do not need to difference this series in order to fit an ARIMA model, but can fit an ARIMA model to the original series (the order of differencing required, d, is zero here).
+
+```{r}
+acf(volcanodust_series, lag.max=20)
+acf(volcanodust_series, lag.max=20, plot=FALSE)
+```
+
+We see from the correlogram that the autocorrelations for lags 1, 2 and 3 exceed the significance bounds, and that the autocorrelations tail off to zero after lag 3. The autocorrelations for lags 1, 2, 3 are positive, and decrease in magnitude with increasing lag (lag 1: 0.666, lag 2: 0.374, lag 3: 0.162).
+
+The autocorrelation for lags 19 and 20 exceed the significance bounds too, but it is likely that this is due to chance, since they just exceed the significance bounds (especially for lag 19), the autocorrelations for lags 4-18 do not exceed the signifiance bounds, and we would expect 1 in 20 lags to exceed the 95% significance bounds by chance alone.
+
+```{r}
+pacf(volcanodust_series, lag.max=20)
+pacf(volcanodust_series, lag.max=20, plot=FALSE)
+```
+Since the correlogram tails off to zero after lag 3, and the partial correlogram is zero after lag 2, the following ARMA models are possible for the time series:
+
+1. an $ARMA(2,0)$ model, since the partial autocorrelogram is zero after lag 2, and the correlogram tails off to zero after lag 3, and the partial correlogram is zero after lag 2
+2. an $ARMA(0,3)$ model, since the autocorrelogram is zero after lag 3, and the partial correlogram tails off to zero (although perhaps too abruptly for this model to be appropriate)
+3. an $ARMA(p,q)$ mixed model, since the correlogram and partial correlogram tail off to zero (although the partial correlogram perhaps tails off too abruptly for this model to be appropriate)
+
+The $ARMA(2,0)$ model has 2 parameters, the $ARMA(0,3)$ model has 3 parameters, and the $ARMA(p,q)$ model has at least 2 parameters. Therefore, using the principle of parsimony, the $ARMA(2,0)$ model and $ARMA(p,q)$ model are equally good candidate models.
+
+An $ARMA(2,0)$ model is an autoregressive model of order 2, or AR(2) model. This model can be written as: $X_t - \mu = (\beta_1 * (X_t-1 - \mu)) + (\beta_2 * (X_t-2 - \mu)) + Z_t$, where $X_t$ is the stationary time series we are studying (the time series of volcanic dust veil index), $\mu$ is the mean of time series $X_t$, $\beta_1$ and $\beta_2$ are parameters to be estimated, and $Z_t$ is white noise with mean zero and constant variance.
+
+
+### 1.3.3 Forecasting using an ARIMA Model
+Once you have selected the best candidate $ARIMA(p,d,q)$ model for your time series data, you can estimate the parameters of that ARIMA model, and use that as a predictive model for making forecasts for future values of your time series.
+
+You can estimate the parameters of an $ARIMA(p,d,q)$ model using the `arima()` function in R.
+
+#### 1.3.3.1 Example of Ages at Death of the Kings of England
+
+For example, we discussed above that an $ARIMA(0,1,1)$ model seems a plausible model for the ages at deaths of the kings of England. You can specify the values of $p$, $d$ and $q$ in the ARIMA model by using the “order” argument of the `arima()` function in R. To fit an $ARIMA(p,d,q)$ model to this time series (which we stored in the variable “kingstimeseries”, see above), we type:
+
+```{r}
+kings_time_series_arima <- arima(kings_time_series, order = c(0, 1, 1))
+kings_time_series_arima
+```
+
+We can then use the ARIMA model to make forecasts for future values of the time series, using the `forecast.Arima()` function in the `forecast` R package (to predict next 5 kings)
+```{r}
+kings_time_series_forecasts <- forecast:::forecast.Arima(kings_time_series_arima, h=5)
+# we can specify the confidence level by forecast.Arima(.., h = .., level=c(99.5))
+kings_time_series_forecasts
+```
+
+```{r}
+forecast:::plot.forecast(kings_time_series_forecasts)
+```
+Similar with the case of exponential smoothing models, it is a good idea to investigate whether the forecast errors (__residuals__) of an ARIMA model are normally distributed with mean zero and constant variance, and whether the are correlations between successive forecast errors.
+
+```{r}
+acf(kings_time_series_forecasts$residuals, lag.max=20)
+Box.test(kings_time_series_forecasts$residuals, lag=20, type="Ljung-Box")
+
+## if the p value is smaller than 0.05, we will reject the hypothesis that the residual is white noise. 
+```
+To investigate whether the forecast errors are normally distributed with mean zero and constant variance, we can make a time plot and histogram (with overlaid normal curve) of the forecast errors:
+```{r}
+plot.ts(kings_time_series_forecasts$residuals)
+plotForecastErrors(kings_time_series_forecasts$residuals)
+```
+

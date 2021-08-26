@@ -1,0 +1,212 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Chapter 7 Time-dependent graphs
+
+A graph can be a powerful vehicle for displaying change over time. The most common time-dependent graph is the time series line graph. Other options include the dumbbell charts and the slope graph.
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+```
+
+
+## 7.1 Time Series
+
+A time series is a set of quantitative values obtained at successive time points. The intervals between time points (e.g., hours, days, weeks, months, or years) are usually equal.
+
+Consider the Economics time series that come with the ggplot2 package. It contains US monthly economic data collected from January 1967 thru January 2015. Let’s plot personal savings rate (psavert). We can do this with a simple line plot.
+
+```{r}
+ggplot(economics, aes(x = date, y = psavert)) +
+  geom_line() +
+  labs(title = "Personal Savings Rate",
+       x = "Date",
+       y = "Personal Savings Rate")
+```
+The `scale_x_date` function can be used to reformat dates. In the graph below, tick marks appear every 5 years and dates are presented in `MMM-YY` format. Additionally, the time series line is given an off-red color and made thicker, a trend line (loess) and titles are added, and the theme is simplified.
+
+```{r}
+library(scales)
+
+ggplot(economics, aes(x=date, y=psavert)) + 
+  geom_line(color="indianred3", size = 1) + 
+  geom_smooth() + 
+  scale_x_date(date_breaks = '5 years', labels = date_format("%b-%y")) + 
+  labs(title = "Personal Savings Rate",
+       subtitle = "1967 to 2015",
+       x = "",
+       y = "Personal Savings Rate") +
+  theme_minimal()
+```
+__Note: When plotting time series, be sure that the date variable is `class date` and not `class character`.__
+
+Let’s close this section with a multivariate time series (more than one series). We’ll compare closing prices for Apple and Facebook from Jan 1, 2018 to July 31, 2018.
+
+```{r}
+library(quantmod)
+
+# get apple (AAPL) closing prices
+apple <- getSymbols("AAPL", 
+                    return.class = "data.frame", 
+                    from="2020-01-01",
+                    to = "2020-12-31" )
+
+apple <- AAPL %>%
+  mutate(Date = as.Date(row.names(.))) %>%
+  select(Date, AAPL.Close) %>%
+  rename(Close = AAPL.Close) %>%
+  mutate(Company = "Apple") 
+
+# get facebook (FB) closing prices
+facebook <- getSymbols("FB", 
+                       return.class = "data.frame", 
+                       from="2020-01-01",
+                       to = "2020-12-31" )
+
+facebook <- FB %>%
+  mutate(Date = as.Date(row.names(.))) %>%
+  select(Date, FB.Close) %>%
+  rename(Close = FB.Close) %>%
+  mutate(Company = "Facebook")
+
+# combine data for both companies
+# mseries <- apple %>%
+#   left_join(facebook, by = "Date", suffix = c(".Apple", ".Facebook"))
+
+mseries <- rbind(apple, facebook)
+ggplot(mseries, 
+       aes(x=Date, y= Close, color=Company)) + 
+  geom_line(size=1) +
+  labs(title = "NASDAQ Closing Prices",
+       subtitle = "Jan - Aug 2020",
+       caption = "source: Yahoo Finance",
+       y = "Closing Price")
+
+```
+
+## 7.2 Dummbbell Charts
+
+Dumbbell charts are useful for displaying change between two time points for several groups or observations. The `geom_dumbbell` function from the `ggalt` package is used.
+
+Using the `gapminder` dataset let’s plot the change in life expectancy from 1952 to 2007 in the Americas. The dataset is in long format. We will need to convert it to wide format in order to create the dumbbell plot
+```{r}
+library(ggalt)
+
+# load data
+data(gapminder, package = "gapminder")
+
+# subset_data
+plotdata_long <- filter(gapminder, continent == 'Americas' & year %in% c(1952, 2007)) %>%
+  select(country, year, lifeExp)
+
+plotdata_wide <- spread(plotdata_long, year, lifeExp)
+names(plotdata_wide) <- c("country", "y1952", "y2007")
+
+# create dumbbell plot
+ggplot(plotdata_wide, aes(y = country,
+                          x = y1952,
+                          xend = y2007)) +  
+  geom_dumbbell()
+```
+The graph will be easier to read if the countries are sorted and the points are sized and colored. In the next graph, we’ll sort by 1952 life expectancy, and modify the line and point size, color the points, add titles and labels, and simplify the theme.
+
+```{r}
+# create dumbbell plot
+ggplot(plotdata_wide, 
+       aes(y = reorder(country, -y1952),
+           x = y1952,
+           xend = y2007)) +  
+  geom_dumbbell(size = 1.2,
+                size_x = 3, 
+                size_xend = 3,
+                colour = "grey", 
+                colour_x = "blue", 
+                colour_xend = "red") +
+  theme_minimal() + 
+  labs(title = "Change in Life Expectancy",
+       subtitle = "1952 to 2007",
+       x = "Life Expectancy (years)",
+       y = "")
+```
+## 7.3 Slope graphs
+
+When there are several groups and several time points, a slope graph can be helpful. Let’s plot life expectancy for six Central American countries in 1992, 1997, 2002, and 2007. Again we’ll use the gapminder data.
+
+To create a slope graph, we’ll use the `newggslopegraph` function from the `CGPfunctions` package.
+
+The `newggslopegraph` function parameters are (in order)
+
+1. data frame
+2. time variable (which must be a factor)
+3. numeric variable to be plotted
+4. and grouping variable (creating one line per group).
+
+```{r}
+library(CGPfunctions)
+
+# Select Central American countries data 
+# for 1992, 1997, 2002, and 2007
+
+df <- gapminder %>%
+  filter(year %in% c(1992, 1997, 2002, 2007) &
+           country %in% c("Panama", "Costa Rica", 
+                          "Nicaragua", "Honduras", 
+                          "El Salvador", "Guatemala",
+                          "Belize")) %>%
+  mutate(year = factor(year),
+         lifeExp = round(lifeExp)) 
+
+newggslopegraph(df, year, lifeExp, country) +
+  labs(title="Life Expectancy by Country", 
+       subtitle="Central America", 
+       caption="source: gapminder")
+```
+
+## 7.4 Area Charts
+
+A simple area chart is basically a line graph, with a fill from the line to the x-axis.
+
+```{r}
+# basic area chart
+ggplot(economics, aes(x = date, y = psavert)) +
+  geom_area(fill="lightblue", color="black") +
+  labs(title = "Personal Savings Rate",
+       x = "Date",
+       y = "Personal Savings Rate")
+
+```
+A stacked area chart can be used to show differences between groups over time. Consider the uspopage dataset from the `gcookbook` package. We’ll plot the age distribution of the US population from 1900 and 2002.
+```{r}
+# stacked area chart
+data(uspopage, package = "gcookbook")
+ggplot(uspopage, aes(x = Year,
+                     y = Thousands, 
+                     fill = AgeGroup)) +
+  geom_area() +
+  labs(title = "US Population by age",
+       x = "Year",
+       y = "Population in Thousands")
+```
+__It is best to avoid scientific notation in your graphs__. How likely is it that the average reader will know that 3e+05 means 300,000,000? It is easy to change the scale in ggplot2. Simply divide the Thousands variable by 1000 and report it as Millions.
+
+```{r}
+# stacked area chart
+data(uspopage, package = "gcookbook")
+ggplot(uspopage, aes(x = Year,
+                     y = Thousands/1000, 
+                     fill = forcats::fct_rev(AgeGroup))) +
+  geom_area(color = "black") +
+  labs(title = "US Population by age",
+       subtitle = "1900 to 2002",
+       caption = "source: U.S. Census Bureau, 2003, HS-3",
+       x = "Year",
+       y = "Population in Millions",
+       fill = "Age Group") +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal()
+```
+
